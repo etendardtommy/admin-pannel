@@ -141,16 +141,10 @@ const ArticleForm = () => {
         }
 
         try {
-            const config = {
-                headers: {
-                    'Content-Type': 'multipart/form-data'
-                }
-            };
-
             if (isEditing) {
-                await api.patch(`/articles/${id}`, payload, config);
+                await api.patch(`/articles/${id}`, payload);
             } else {
-                await api.post('/articles', payload, config);
+                await api.post('/articles', payload);
             }
             navigate('/articles');
         } catch (err: any) {

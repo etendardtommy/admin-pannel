@@ -99,13 +99,9 @@ const ProjectForm = () => {
 
         try {
             if (isEditing) {
-                await api.patch(`/portfolio/projects/${id}`, payload, {
-                    headers: { 'Content-Type': 'multipart/form-data' }
-                });
+                await api.patch(`/portfolio/projects/${id}`, payload);
             } else {
-                await api.post('/portfolio/projects', payload, {
-                    headers: { 'Content-Type': 'multipart/form-data' }
-                });
+                await api.post('/portfolio/projects', payload);
             }
             navigate('/projects');
         } catch (err: any) {

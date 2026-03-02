@@ -3,13 +3,6 @@ import { Plus, Trash2, Globe } from 'lucide-react';
 import api from '../lib/axios';
 import { useSite } from '../contexts/SiteContext';
 
-interface Site {
-    id: number;
-    name: string;
-    url: string;
-    description: string;
-}
-
 const Sites = () => {
     const { sites, setSites, activeSite, setActiveSite } = useSite();
     const [loading, setLoading] = useState(false);

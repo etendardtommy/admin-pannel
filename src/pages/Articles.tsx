@@ -1,8 +1,9 @@
 import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import { Plus, Edit2, Trash2, Search, ExternalLink, FileText } from 'lucide-react';
+import { Plus, Edit2, Trash2, Search, FileText } from 'lucide-react';
 import api from '../lib/axios';
 import { useSite } from '../contexts/SiteContext';
+import { useApi } from '../hooks/useApi';
 
 interface Article {
     id: number;
@@ -15,36 +16,25 @@ interface Article {
 
 const Articles = () => {
     const { activeSite } = useSite();
-    const [articles, setArticles] = useState<Article[]>([]);
-    const [loading, setLoading] = useState(true);
     const [searchTerm, setSearchTerm] = useState('');
 
-    const fetchArticles = async () => {
-        try {
-            // Requête vers le module articles récemment créé, en filtrant sur le site actif
-            const response = await api.get(`/articles?siteId=${activeSite?.id}`);
-            setArticles(response.data);
-        } catch (error) {
-            console.error('Erreur lors du chargement des articles:', error);
-        } finally {
-            setLoading(false);
-        }
-    };
+    // Default to an empty array so filter doesn't crash before data arrives
+    const { data: fetchArticles, loading } = useApi<Article[]>(`/articles?siteId=${activeSite?.id}`, activeSite?.id.toString());
+    const [localArticles, setLocalArticles] = useState<Article[]>([]);
 
     useEffect(() => {
-        if (activeSite) {
-            fetchArticles();
+        if (fetchArticles) {
+            setLocalArticles(fetchArticles);
         } else {
-            setArticles([]);
-            setLoading(false);
+            setLocalArticles([]);
         }
-    }, [activeSite]);
+    }, [fetchArticles]);
 
     const handleDelete = async (id: number) => {
         if (window.confirm('Êtes-vous sûr de vouloir supprimer cet article ?')) {
             try {
                 await api.delete(`/articles/${id}`);
-                setArticles(articles.filter((a) => a.id !== id));
+                setLocalArticles(localArticles.filter((a) => a.id !== id));
             } catch (error) {
                 console.error('Erreur lors de la suppression:', error);
                 alert('Erreur lors de la suppression');
@@ -52,7 +42,7 @@ const Articles = () => {
         }
     };
 
-    const filteredArticles = articles.filter((a) =>
+    const filteredArticles = localArticles.filter((a) =>
         a.title.toLowerCase().includes(searchTerm.toLowerCase())
     );
 

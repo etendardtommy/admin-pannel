@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { Plus, Edit2, Trash2, Search, ExternalLink, FolderKanban } from 'lucide-react';
 import api from '../lib/axios';
+import { useApi } from '../hooks/useApi';
 import { useSite } from '../contexts/SiteContext';
 
 interface Project {
@@ -17,35 +18,24 @@ interface Project {
 
 const Projects = () => {
     const { activeSite } = useSite();
-    const [projects, setProjects] = useState<Project[]>([]);
-    const [loading, setLoading] = useState(true);
     const [searchTerm, setSearchTerm] = useState('');
 
-    const fetchProjects = async () => {
-        try {
-            const response = await api.get('/portfolio/projects');
-            setProjects(response.data);
-        } catch (error) {
-            console.error('Erreur lors du chargement des projets:', error);
-        } finally {
-            setLoading(false);
-        }
-    };
+    const { data: fetchProjects, loading } = useApi<Project[]>('/portfolio/projects', activeSite?.id.toString());
+    const [localProjects, setLocalProjects] = useState<Project[]>([]);
 
     useEffect(() => {
-        if (activeSite) {
-            fetchProjects();
+        if (fetchProjects) {
+            setLocalProjects(fetchProjects);
         } else {
-            setProjects([]);
-            setLoading(false);
+            setLocalProjects([]);
         }
-    }, [activeSite]);
+    }, [fetchProjects]);
 
     const handleDelete = async (id: number) => {
         if (window.confirm('Êtes-vous sûr de vouloir supprimer ce projet ?')) {
             try {
                 await api.delete(`/portfolio/projects/${id}`);
-                setProjects(projects.filter((p) => p.id !== id));
+                setLocalProjects(localProjects.filter((p) => p.id !== id));
             } catch (error) {
                 console.error('Erreur lors de la suppression:', error);
                 alert('Erreur lors de la suppression');
@@ -53,7 +43,7 @@ const Projects = () => {
         }
     };
 
-    const filteredProjects = projects.filter((p) =>
+    const filteredProjects = localProjects.filter((p) =>
         p.title.toLowerCase().includes(searchTerm.toLowerCase())
     );
 
