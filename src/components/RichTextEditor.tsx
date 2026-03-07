@@ -147,17 +147,26 @@ const MenuBar = ({ editor, uploading }: { editor: any; uploading: boolean }) => 
 export const RichTextEditor = ({ content, onChange, placeholder = 'Commencez à écrire...\n\nAstuce : Collez une capture d\'écran directement avec Ctrl+V, ou glissez une image depuis votre bureau.' }: RichTextEditorProps) => {
     const [uploading, setUploading] = useState(false);
     const [isDragOver, setIsDragOver] = useState(false);
-    const editorRef = useRef<any>(null);
 
     // Upload helper that shows loading state
-    const handleUpload = useCallback(async (file: File) => {
-        if (!file.type.startsWith('image/')) return false;
-        const currentEditor = editorRef.current;
-        if (!currentEditor) return false;
+    const handleUpload = useCallback(async (file: File, editorInstance: any) => {
+        console.log('--- handleUpload called ---');
+        console.log('File type:', file.type, 'Size:', file.size, 'Name:', file.name);
+
+        if (!file.type.startsWith('image/')) {
+            console.warn('File is not an image:', file.type);
+            return false;
+        }
+
+        if (!editorInstance) {
+            console.error('editorInstance is null');
+            return false;
+        }
+
         setUploading(true);
         try {
             const url = await uploadImageFile(file);
-            currentEditor.chain().focus().setImage({ src: url }).run();
+            editorInstance.chain().focus().setImage({ src: url }).run();
             return true;
         } catch (err: any) {
             console.error('Erreur upload image:', err);
@@ -177,8 +186,8 @@ export const RichTextEditor = ({ content, onChange, placeholder = 'Commencez à 
             }),
             Underline,
             Image.configure({
-                inline: false,
-                allowBase64: false, // Prevent TipTap from converting pasted images to huge base64 strings
+                inline: true, // Allows the image to behave like text (so it can be aligned and dragged easily)
+                allowBase64: false,
                 HTMLAttributes: { class: 'rte-image' },
             }),
             Link.configure({
@@ -192,31 +201,7 @@ export const RichTextEditor = ({ content, onChange, placeholder = 'Commencez à 
         onUpdate({ editor }) {
             onChange(editor.getHTML());
         },
-        onCreate({ editor }) {
-            editorRef.current = editor;
-        },
-        onDestroy() {
-            editorRef.current = null;
-        },
         editorProps: {
-            // Handle paste events (Ctrl+V screenshots)
-            handlePaste(_view, event) {
-                const items = Array.from(event.clipboardData?.items || []);
-                const imageItem = items.find(item => item.type.startsWith('image/'));
-                if (!imageItem) return false;
-
-                event.preventDefault();
-                let file = imageItem.getAsFile();
-                if (!file || !editorRef.current) return false;
-
-                // Ensure file has a name for Multer
-                if (!file.name) {
-                    file = new File([file], 'pasted-image.png', { type: file.type });
-                }
-
-                handleUpload(file);
-                return true;
-            },
             // Handle drag & drop of image files
             handleDrop(_view, event) {
                 const files = Array.from(event.dataTransfer?.files || []);
@@ -224,8 +209,10 @@ export const RichTextEditor = ({ content, onChange, placeholder = 'Commencez à 
                 if (!imageFile) return false;
 
                 event.preventDefault();
-                if (!editorRef.current) return false;
-                handleUpload(imageFile);
+                const editorInstance = (_view as any)?.editor;
+                if (!editorInstance) return false;
+
+                handleUpload(imageFile, editorInstance);
                 return true;
             },
         },
@@ -240,9 +227,29 @@ export const RichTextEditor = ({ content, onChange, placeholder = 'Commencez à 
     const handleDrop = (e: React.DragEvent) => {
         setIsDragOver(false);
         const file = e.dataTransfer?.files?.[0];
-        if (file && file.type.startsWith('image/')) {
+        if (file && file.type.startsWith('image/') && editor) {
             e.preventDefault();
-            handleUpload(file);
+            handleUpload(file, editor);
+        }
+    };
+
+    // Native Paste Handler on wrapper
+    const handlePaste = (e: React.ClipboardEvent) => {
+        if (!editor) return;
+
+        const items = Array.from(e.clipboardData.items);
+        const imageItem = items.find(item => item.type.startsWith('image/'));
+
+        if (imageItem) {
+            e.preventDefault(); // Prevent default paste only if we found an image
+            let file = imageItem.getAsFile();
+            if (file) {
+                if (!file.name || file.name === 'image.png') {
+                    const ext = file.type === 'image/jpeg' ? 'jpg' : 'png';
+                    file = new File([file], `pasted-image.${ext}`, { type: file.type });
+                }
+                handleUpload(file, editor);
+            }
         }
     };
 
@@ -252,6 +259,7 @@ export const RichTextEditor = ({ content, onChange, placeholder = 'Commencez à 
             onDragOver={handleDragOver}
             onDragLeave={handleDragLeave}
             onDrop={handleDrop}
+            onPaste={handlePaste}
         >
             <MenuBar editor={editor} uploading={uploading} />
 
@@ -271,7 +279,7 @@ export const RichTextEditor = ({ content, onChange, placeholder = 'Commencez à 
             <EditorContent editor={editor} className="rte-content" />
 
             <div className="rte-hint">
-                💡 Collez une capture avec <kbd>Ctrl+V</kbd> · Glissez une image · ou cliquez sur 🖼️
+                💡 <b>Nouveau:</b> Glissez l'image avec votre souris pour la déplacer. Utilisez les boutons d'alignement ⬅ ↔ ➡ pour la centrer !
             </div>
         </div>
     );
