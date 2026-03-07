@@ -1,8 +1,11 @@
 import { useState, useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { Save, ArrowLeft, Image as ImageIcon, FileCode } from 'lucide-react';
+import { Save, ArrowLeft, Image as ImageIcon } from 'lucide-react';
 import api from '../lib/axios';
 import { useSite } from '../contexts/SiteContext';
+import { RichTextEditor } from '../components/RichTextEditor';
+
+const SERVER_URL = import.meta.env.VITE_SERVER_URL || 'http://localhost:3000';
 
 const ArticleForm = () => {
     const { id } = useParams();
@@ -14,10 +17,7 @@ const ArticleForm = () => {
     const [saving, setSaving] = useState(false);
     const [error, setError] = useState<string | null>(null);
 
-    // Selected files state
     const [coverImageFile, setCoverImageFile] = useState<File | null>(null);
-    const [htmlFile, setHtmlFile] = useState<File | null>(null);
-    // Real-time preview for new selected images, or existing imageUrl from DB
     const [imagePreview, setImagePreview] = useState<string | null>(null);
 
     const [formData, setFormData] = useState({
@@ -25,8 +25,6 @@ const ArticleForm = () => {
         excerpt: '',
         published: false,
         tags: '',
-        // Keep these if we are editing and want to show existing data
-        imageUrl: '',
         htmlContent: '',
     });
 
@@ -35,13 +33,11 @@ const ArticleForm = () => {
             navigate('/');
             return;
         }
-
         if (isEditing) {
             fetchArticle();
         }
     }, [id, activeSite, navigate]);
 
-    // Cleanup object URL to prevent memory leaks
     useEffect(() => {
         return () => {
             if (imagePreview && imagePreview.startsWith('blob:')) {
@@ -59,15 +55,11 @@ const ArticleForm = () => {
                 excerpt: article.excerpt || '',
                 published: article.published || false,
                 tags: article.tags ? article.tags.join(', ') : '',
-                imageUrl: article.imageUrl || '',
                 htmlContent: article.htmlContent || '',
             });
-
-            // Set existing image as preview if present
             if (article.imageUrl) {
-                // If it's a relative path from the backend uploads
                 const fullUrl = article.imageUrl.startsWith('/')
-                    ? `http://localhost:3000${article.imageUrl}`
+                    ? `${SERVER_URL}${article.imageUrl}`
                     : article.imageUrl;
                 setImagePreview(fullUrl);
             }
@@ -91,18 +83,13 @@ const ArticleForm = () => {
         if (e.target.files && e.target.files.length > 0) {
             const file = e.target.files[0];
             setCoverImageFile(file);
-
-            // Generate a local preview
             const objectUrl = URL.createObjectURL(file);
             setImagePreview(objectUrl);
         }
     };
 
-    const handleHtmlFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-        if (e.target.files && e.target.files.length > 0) {
-            const file = e.target.files[0];
-            setHtmlFile(file);
-        }
+    const handleContentChange = (html: string) => {
+        setFormData(prev => ({ ...prev, htmlContent: html }));
     };
 
     const handleSubmit = async (e: React.FormEvent) => {
@@ -110,34 +97,25 @@ const ArticleForm = () => {
         setSaving(true);
         setError(null);
 
-        // Process tags
         const tagsArray = formData.tags
             .split(',')
             .map(t => t.trim())
             .filter(t => t.length > 0);
 
-        // Build FormData
+        // Use FormData to support cover image upload alongside JSON-like fields
         const payload = new FormData();
         payload.append('title', formData.title);
         payload.append('excerpt', formData.excerpt);
         payload.append('published', String(formData.published));
-        payload.append('tags', JSON.stringify(tagsArray)); // Append as stringified JSON 
+        payload.append('tags', JSON.stringify(tagsArray));
+        payload.append('htmlContent', formData.htmlContent);
 
         if (activeSite?.id) {
             payload.append('siteId', String(activeSite.id));
         }
 
-        // Append files if they were selected
         if (coverImageFile) {
             payload.append('coverImage', coverImageFile);
-        }
-        if (htmlFile) {
-            payload.append('htmlFile', htmlFile);
-        } else if (!isEditing && !htmlFile) {
-            // Optional: enforce HTML upload on creation
-            setError('Veuillez uploader un fichier HTML pour le contenu de l\'article.');
-            setSaving(false);
-            return;
         }
 
         try {
@@ -164,7 +142,8 @@ const ArticleForm = () => {
     }
 
     return (
-        <div className="max-w-4xl mx-auto space-y-6">
+        <div className="max-w-6xl mx-auto space-y-6">
+            {/* Header */}
             <div className="flex items-center justify-between">
                 <div className="flex items-center gap-4">
                     <button
@@ -178,7 +157,7 @@ const ArticleForm = () => {
                             {isEditing ? 'Éditer l\'article' : 'Nouvel article'}
                         </h1>
                         <p className="text-slate-500 mt-1">
-                            {isEditing ? 'Modifiez les informations de votre article.' : 'Créez un nouvel article pour votre blog.'}
+                            {isEditing ? 'Modifiez votre article.' : 'Créez un nouvel article.'}
                         </p>
                     </div>
                 </div>
@@ -198,68 +177,42 @@ const ArticleForm = () => {
                 </div>
             )}
 
-            <form onSubmit={handleSubmit} className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                <div className="lg:col-span-2 space-y-6">
-                    {/* Main Content */}
-                    <div className="bg-white rounded-2xl p-6 shadow-sm border border-slate-100 space-y-6">
-                        <div>
-                            <label htmlFor="title" className="block text-sm font-medium text-slate-700 mb-1">
-                                Titre de l'article *
-                            </label>
-                            <input
-                                type="text"
-                                id="title"
-                                name="title"
-                                required
-                                value={formData.title}
-                                onChange={handleChange}
-                                className="w-full px-4 py-2 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 text-slate-900"
-                                placeholder="Mon super article"
-                            />
-                        </div>
+            <form onSubmit={handleSubmit} className="grid grid-cols-1 lg:grid-cols-4 gap-6">
+                {/* Main content — 3 cols */}
+                <div className="lg:col-span-3 space-y-6">
+                    {/* Title */}
+                    <div className="bg-white rounded-2xl p-6 shadow-sm border border-slate-100">
+                        <label htmlFor="title" className="block text-sm font-semibold text-slate-700 mb-2">
+                            Titre de l'article *
+                        </label>
+                        <input
+                            type="text"
+                            id="title"
+                            name="title"
+                            required
+                            value={formData.title}
+                            onChange={handleChange}
+                            className="w-full px-4 py-3 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary-500 text-slate-900 text-lg font-medium"
+                            placeholder="Mon super article..."
+                        />
+                    </div>
 
-                        <div>
-                            <label htmlFor="htmlFile" className="block text-sm font-medium text-slate-700 mb-2">
-                                Contenu de l'article (Fichier .html) {isEditing ? '' : '*'}
-                            </label>
-
-                            <div className="flex items-center justify-center w-full">
-                                <label htmlFor="htmlFile" className={`flex flex-col items-center justify-center w-full h-32 border-2 border-dashed rounded-lg cursor-pointer ${htmlFile ? 'border-primary-400 bg-primary-50' : 'border-slate-300 bg-slate-50 hover:bg-slate-100'}`}>
-                                    <div className="flex flex-col items-center justify-center pt-5 pb-6">
-                                        <FileCode className={`w-8 h-8 mb-3 ${htmlFile ? 'text-primary-500' : 'text-slate-400'}`} />
-                                        <p className="mb-2 text-sm text-slate-500">
-                                            {htmlFile ? (
-                                                <span className="font-semibold text-primary-600">{htmlFile.name}</span>
-                                            ) : (
-                                                <><span className="font-semibold">Cliquez pour uploader</span> un fichier HTML</>
-                                            )}
-                                        </p>
-                                        {!htmlFile && <p className="text-xs text-slate-500">HTML uniquement</p>}
-                                    </div>
-                                    <input
-                                        id="htmlFile"
-                                        type="file"
-                                        accept=".html"
-                                        className="hidden"
-                                        onChange={handleHtmlFileChange}
-                                        required={!isEditing}
-                                    />
-                                </label>
-                            </div>
-
-                            {isEditing && !htmlFile && formData.htmlContent && (
-                                <p className="text-xs text-slate-500 mt-2 flex items-center gap-1">
-                                    <span className="w-2 h-2 rounded-full bg-emerald-500"></span>
-                                    Un contenu HTML est déjà enregistré. Uploadez un nouveau fichier pour le remplacer.
-                                </p>
-                            )}
-                        </div>
+                    {/* WYSIWYG Editor */}
+                    <div className="bg-white rounded-2xl p-6 shadow-sm border border-slate-100">
+                        <label className="block text-sm font-semibold text-slate-700 mb-3">
+                            Contenu de l'article
+                        </label>
+                        <RichTextEditor
+                            content={formData.htmlContent}
+                            onChange={handleContentChange}
+                            placeholder="Commencez à écrire votre article... Utilisez la barre d'outils pour formater le texte et insérer des images."
+                        />
                     </div>
 
                     {/* Excerpt */}
                     <div className="bg-white rounded-2xl p-6 shadow-sm border border-slate-100">
-                        <label htmlFor="excerpt" className="block text-sm font-medium text-slate-700 mb-1">
-                            Résumé (Excerpt)
+                        <label htmlFor="excerpt" className="block text-sm font-semibold text-slate-700 mb-2">
+                            Résumé (affiché dans la liste des articles)
                         </label>
                         <textarea
                             id="excerpt"
@@ -267,16 +220,17 @@ const ArticleForm = () => {
                             rows={3}
                             value={formData.excerpt}
                             onChange={handleChange}
-                            className="w-full px-4 py-2 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 text-slate-900"
-                            placeholder="Un bref résumé de l'article pour les listes..."
+                            className="w-full px-4 py-3 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary-500 text-slate-900 resize-none"
+                            placeholder="Un bref résumé pour la liste d'articles..."
                         />
                     </div>
                 </div>
 
+                {/* Sidebar — 1 col */}
                 <div className="space-y-6">
-                    {/* Settings Side */}
-                    <div className="bg-white rounded-2xl p-6 shadow-sm border border-slate-100 space-y-6">
-                        <h3 className="font-semibold text-slate-900 mb-4">Paramètres</h3>
+                    {/* Settings */}
+                    <div className="bg-white rounded-2xl p-6 shadow-sm border border-slate-100 space-y-5">
+                        <h3 className="font-semibold text-slate-900">Paramètres</h3>
 
                         <label className="flex items-center gap-3 cursor-pointer">
                             <div className="relative">
@@ -292,8 +246,8 @@ const ArticleForm = () => {
                             <span className="text-sm font-medium text-slate-700">Publié en ligne</span>
                         </label>
 
-                        <div className="pt-4 border-t border-slate-100">
-                            <label htmlFor="tags" className="block text-sm font-medium text-slate-700 mb-1">
+                        <div className="border-t border-slate-100 pt-4">
+                            <label htmlFor="tags" className="block text-sm font-semibold text-slate-700 mb-2">
                                 Tags
                             </label>
                             <input
@@ -302,44 +256,47 @@ const ArticleForm = () => {
                                 name="tags"
                                 value={formData.tags}
                                 onChange={handleChange}
-                                className="w-full px-4 py-2 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 text-slate-900"
-                                placeholder="tech, blog, actualité"
+                                className="w-full px-4 py-2 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary-500 text-slate-900"
+                                placeholder="tech, blog, tuto"
                             />
-                            <p className="text-xs text-slate-500 mt-1">Séparés par des virgules</p>
+                            <p className="text-xs text-slate-400 mt-1">Séparés par des virgules</p>
                         </div>
                     </div>
 
-                    {/* Image Settings */}
+                    {/* Cover Image */}
                     <div className="bg-white rounded-2xl p-6 shadow-sm border border-slate-100">
                         <h3 className="font-semibold text-slate-900 mb-4">Image de couverture</h3>
 
-                        <div>
-                            <input
-                                type="file"
-                                id="coverImage"
-                                accept="image/*"
-                                className="hidden"
-                                onChange={handleImageChange}
-                            />
+                        <input
+                            type="file"
+                            id="coverImage"
+                            accept="image/*"
+                            className="hidden"
+                            onChange={handleImageChange}
+                        />
 
-                            <label
-                                htmlFor="coverImage"
-                                className="block w-full text-center px-4 py-2 mb-4 bg-white border border-slate-200 rounded-lg cursor-pointer hover:bg-slate-50 transition-colors text-sm font-medium text-slate-700"
-                            >
-                                Sélectionner une image
-                            </label>
-
-                            {imagePreview ? (
-                                <div className="aspect-video rounded-lg overflow-hidden border border-slate-200 bg-slate-50">
+                        {imagePreview ? (
+                            <div className="space-y-3">
+                                <div className="aspect-video rounded-xl overflow-hidden border border-slate-200 bg-slate-50">
                                     <img src={imagePreview} alt="Aperçu" className="w-full h-full object-cover" />
                                 </div>
-                            ) : (
-                                <div className="aspect-video rounded-lg border-2 border-dashed border-slate-200 flex flex-col items-center justify-center text-slate-400 bg-slate-50">
-                                    <ImageIcon size={32} className="mb-2" />
-                                    <span className="text-sm">Aucune image</span>
-                                </div>
-                            )}
-                        </div>
+                                <label
+                                    htmlFor="coverImage"
+                                    className="block w-full text-center px-4 py-2 bg-white border border-slate-200 rounded-lg cursor-pointer hover:bg-slate-50 transition-colors text-sm font-medium text-slate-600"
+                                >
+                                    Changer l'image
+                                </label>
+                            </div>
+                        ) : (
+                            <label
+                                htmlFor="coverImage"
+                                className="flex flex-col items-center justify-center gap-3 p-8 border-2 border-dashed border-slate-200 rounded-xl cursor-pointer hover:bg-slate-50 hover:border-primary-300 transition-all"
+                            >
+                                <ImageIcon size={32} className="text-slate-300" />
+                                <span className="text-sm font-medium text-slate-500">Cliquez pour ajouter</span>
+                                <span className="text-xs text-slate-400">PNG, JPG, WEBP</span>
+                            </label>
+                        )}
                     </div>
                 </div>
             </form>

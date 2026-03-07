@@ -34,11 +34,12 @@ const AdminLayout = () => {
             { label: 'Paramètres', path: '/settings', icon: Settings },
         ];
 
-        // On affiche 'Projets' et 'Articles' uniquement si le site selectionné s'appelle 'portfolio' ou 'Portfolio'
+        // On affiche 'Projets', 'Articles' et 'Parcours' uniquement si le site selectionné s'appelle 'portfolio' ou 'Portfolio'
         if (activeSite && activeSite.name.toLowerCase() === 'portfolio') {
             items.splice(1, 0,
                 { label: 'Projets', path: '/projects', icon: FolderKanban },
-                { label: 'Articles', path: '/articles', icon: FileText }
+                { label: 'Articles', path: '/articles', icon: FileText },
+                { label: 'Parcours', path: '/experiences', icon: FileText }
             );
         }
 
