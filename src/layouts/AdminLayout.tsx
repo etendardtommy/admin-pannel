@@ -1,5 +1,5 @@
 import { Outlet, Navigate, Link, useLocation, useNavigate } from 'react-router-dom';
-import { LayoutDashboard, FolderKanban, Settings, LogOut, Globe, FileText, Mail, Images } from 'lucide-react';
+import { LayoutDashboard, FolderKanban, Settings, LogOut, Globe, FileText, Mail, Images, Users } from 'lucide-react';
 import { useSite } from '../contexts/SiteContext';
 import { useEffect, useMemo } from 'react';
 import { useSites } from '../hooks/queries/useSites';
@@ -44,10 +44,11 @@ const AdminLayout = () => {
             );
         }
 
-        // On affiche 'Galerie' uniquement si le site selectionné s'appelle 'Eclipse Web'
+        // On affiche 'Galerie' et 'Roster' uniquement si le site selectionné s'appelle 'Eclipse Web'
         if (activeSite && activeSite.name.toLowerCase().includes('eclipse')) {
             items.splice(2, 0,
-                { label: 'Galerie', path: '/gallery', icon: Images }
+                { label: 'Galerie', path: '/gallery', icon: Images },
+                { label: 'Roster', path: '/roster', icon: Users }
             );
         }
 

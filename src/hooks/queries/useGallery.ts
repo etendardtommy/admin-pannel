@@ -1,24 +1,5 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { useSite } from '../../contexts/SiteContext';
-
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000/api';
-
-function getAuthHeaders(siteId: number) {
-    const token = localStorage.getItem('token');
-    return {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${token}`,
-        'x-site-id': String(siteId),
-    };
-}
-
-function getMultipartAuthHeaders(siteId: number) {
-    const token = localStorage.getItem('token');
-    return {
-        Authorization: `Bearer ${token}`,
-        'x-site-id': String(siteId),
-    };
-}
+import api from '../../lib/axios';
 
 export type GalleryItem = {
     id: number;
@@ -34,73 +15,46 @@ export type GalleryItem = {
 };
 
 export function useGallery() {
-    const { activeSite } = useSite();
-    const siteId = activeSite?.id || 1;
-
     return useQuery<GalleryItem[]>({
-        queryKey: ['gallery', siteId],
+        queryKey: ['gallery'],
         queryFn: async () => {
-            const res = await fetch(`${API_URL}/gallery`, {
-                headers: getAuthHeaders(siteId),
-            });
-            if (!res.ok) throw new Error('Failed to fetch gallery');
-            return res.json();
+            const { data } = await api.get('/gallery');
+            return data;
         },
-        enabled: !!localStorage.getItem('token'),
     });
 }
 
 export function useCreateGalleryItem() {
     const queryClient = useQueryClient();
-    const { activeSite } = useSite();
-    const siteId = activeSite?.id || 1;
 
     return useMutation({
         mutationFn: async (data: FormData) => {
-            const res = await fetch(`${API_URL}/gallery`, {
-                method: 'POST',
-                headers: getMultipartAuthHeaders(siteId),
-                body: data,
-            });
-            if (!res.ok) throw new Error('Failed to create item');
-            return res.json();
+            const res = await api.post('/gallery', data);
+            return res.data;
         },
-        onSuccess: () => queryClient.invalidateQueries({ queryKey: ['gallery', siteId] }),
+        onSuccess: () => queryClient.invalidateQueries({ queryKey: ['gallery'] }),
     });
 }
 
 export function useUpdateGalleryItem() {
     const queryClient = useQueryClient();
-    const { activeSite } = useSite();
-    const siteId = activeSite?.id || 1;
 
     return useMutation({
-        mutationFn: async ({ id, data }: { id: number, data: FormData }) => {
-            const res = await fetch(`${API_URL}/gallery/${id}`, {
-                method: 'PATCH',
-                headers: getMultipartAuthHeaders(siteId),
-                body: data,
-            });
-            if (!res.ok) throw new Error('Failed to update item');
-            return res.json();
+        mutationFn: async ({ id, data }: { id: number; data: FormData }) => {
+            const res = await api.patch(`/gallery/${id}`, data);
+            return res.data;
         },
-        onSuccess: () => queryClient.invalidateQueries({ queryKey: ['gallery', siteId] }),
+        onSuccess: () => queryClient.invalidateQueries({ queryKey: ['gallery'] }),
     });
 }
 
 export function useDeleteGalleryItem() {
     const queryClient = useQueryClient();
-    const { activeSite } = useSite();
-    const siteId = activeSite?.id || 1;
 
     return useMutation({
         mutationFn: async (id: number) => {
-            const res = await fetch(`${API_URL}/gallery/${id}`, {
-                method: 'DELETE',
-                headers: getAuthHeaders(siteId),
-            });
-            if (!res.ok) throw new Error('Failed to delete item');
+            await api.delete(`/gallery/${id}`);
         },
-        onSuccess: () => queryClient.invalidateQueries({ queryKey: ['gallery', siteId] }),
+        onSuccess: () => queryClient.invalidateQueries({ queryKey: ['gallery'] }),
     });
 }
