@@ -1,41 +1,20 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { Link } from 'react-router-dom';
-import { Plus, Edit2, Trash2, Search, ExternalLink, FolderKanban } from 'lucide-react';
-import api from '../lib/axios';
-import { useApi } from '../hooks/useApi';
+import { Plus, Edit2, Trash2, Search, ExternalLink, FolderKanban, Loader2 } from 'lucide-react';
+import { useProjects, useProjectMutations } from '../hooks/queries/useProjects';
 import { useSite } from '../contexts/SiteContext';
-
-interface Project {
-    id: number;
-    title: string;
-    description: string;
-    imageUrl: string;
-    url: string;
-    githubUrl: string;
-    tags: string[];
-    published: boolean;
-}
 
 const Projects = () => {
     const { activeSite } = useSite();
     const [searchTerm, setSearchTerm] = useState('');
 
-    const { data: fetchProjects, loading } = useApi<Project[]>('/portfolio/projects', activeSite?.id.toString());
-    const [localProjects, setLocalProjects] = useState<Project[]>([]);
-
-    useEffect(() => {
-        if (fetchProjects) {
-            setLocalProjects(fetchProjects);
-        } else {
-            setLocalProjects([]);
-        }
-    }, [fetchProjects]);
+    const { data: projects = [], isLoading } = useProjects(activeSite?.id.toString());
+    const { deleteProject } = useProjectMutations();
 
     const handleDelete = async (id: number) => {
         if (window.confirm('Êtes-vous sûr de vouloir supprimer ce projet ?')) {
             try {
-                await api.delete(`/portfolio/projects/${id}`);
-                setLocalProjects(localProjects.filter((p) => p.id !== id));
+                await deleteProject(id);
             } catch (error) {
                 console.error('Erreur lors de la suppression:', error);
                 alert('Erreur lors de la suppression');
@@ -43,7 +22,7 @@ const Projects = () => {
         }
     };
 
-    const filteredProjects = localProjects.filter((p) =>
+    const filteredProjects = projects.filter((p) =>
         p.title.toLowerCase().includes(searchTerm.toLowerCase())
     );
 
@@ -88,10 +67,13 @@ const Projects = () => {
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-slate-100">
-                            {loading ? (
+                            {isLoading ? (
                                 <tr>
                                     <td colSpan={4} className="px-6 py-12 text-center text-slate-500">
-                                        Chargement des projets...
+                                        <div className="flex justify-center items-center">
+                                            <Loader2 className="animate-spin text-primary-500" size={24} />
+                                            <span className="ml-2">Chargement des projets...</span>
+                                        </div>
                                     </td>
                                 </tr>
                             ) : filteredProjects.length === 0 ? (

@@ -1,46 +1,19 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { Link } from 'react-router-dom';
-import { Plus, Search, Filter, MoreVertical, Edit2, Trash2, Briefcase, GraduationCap, Loader2 } from 'lucide-react';
-import api from '../lib/axios';
-
-interface Experience {
-    id: number;
-    type: 'work' | 'education';
-    date: string;
-    title: string;
-    subtitle: string;
-    description: string;
-    skills: string | null;
-    published: boolean;
-}
+import { Plus, Search, Filter, Edit2, Trash2, Briefcase, GraduationCap, Loader2 } from 'lucide-react';
+import { useExperiences, useExperienceMutations } from '../hooks/queries/useExperiences';
 
 const Experiences = () => {
-    const [experiences, setExperiences] = useState<Experience[]>([]);
-    const [loading, setLoading] = useState(true);
     const [searchTerm, setSearchTerm] = useState('');
     const [filterType, setFilterType] = useState<'all' | 'work' | 'education'>('all');
 
-    const fetchExperiences = async () => {
-        try {
-            setLoading(true);
-            const response = await api.get('/experience');
-            setExperiences(response.data);
-        } catch (error) {
-            console.error('Erreur lors du chargement des expériences:', error);
-        } finally {
-            setLoading(false);
-        }
-    };
-
-    useEffect(() => {
-        fetchExperiences();
-    }, []);
+    const { data: experiences = [], isLoading } = useExperiences();
+    const { deleteExperience } = useExperienceMutations();
 
     const handleDelete = async (id: number) => {
         if (window.confirm('Êtes-vous sûr de vouloir supprimer cette expérience ?')) {
             try {
-                await api.delete(`/experience/${id}`);
-                setExperiences(experiences.filter(exp => exp.id !== id));
+                await deleteExperience(id);
             } catch (error) {
                 console.error('Erreur lors de la suppression:', error);
             }
@@ -108,7 +81,7 @@ const Experiences = () => {
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-slate-100">
-                            {loading ? (
+                            {isLoading ? (
                                 <tr>
                                     <td colSpan={5} className="px-6 py-12 text-center">
                                         <div className="flex flex-col items-center gap-3">

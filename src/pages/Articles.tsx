@@ -1,40 +1,20 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { Link } from 'react-router-dom';
-import { Plus, Edit2, Trash2, Search, FileText } from 'lucide-react';
-import api from '../lib/axios';
+import { Plus, Edit2, Trash2, Search, FileText, Loader2 } from 'lucide-react';
 import { useSite } from '../contexts/SiteContext';
-import { useApi } from '../hooks/useApi';
-
-interface Article {
-    id: number;
-    title: string;
-    excerpt: string;
-    imageUrl: string;
-    published: boolean;
-    tags: string[];
-}
+import { useArticles, useArticleMutations } from '../hooks/queries/useArticles';
 
 const Articles = () => {
     const { activeSite } = useSite();
     const [searchTerm, setSearchTerm] = useState('');
 
-    // Default to an empty array so filter doesn't crash before data arrives
-    const { data: fetchArticles, loading } = useApi<Article[]>(`/articles?siteId=${activeSite?.id}`, activeSite?.id.toString());
-    const [localArticles, setLocalArticles] = useState<Article[]>([]);
-
-    useEffect(() => {
-        if (fetchArticles) {
-            setLocalArticles(fetchArticles);
-        } else {
-            setLocalArticles([]);
-        }
-    }, [fetchArticles]);
+    const { data: articles = [], isLoading } = useArticles(activeSite?.id.toString());
+    const { deleteArticle } = useArticleMutations();
 
     const handleDelete = async (id: number) => {
         if (window.confirm('Êtes-vous sûr de vouloir supprimer cet article ?')) {
             try {
-                await api.delete(`/articles/${id}`);
-                setLocalArticles(localArticles.filter((a) => a.id !== id));
+                await deleteArticle(id);
             } catch (error) {
                 console.error('Erreur lors de la suppression:', error);
                 alert('Erreur lors de la suppression');
@@ -42,7 +22,7 @@ const Articles = () => {
         }
     };
 
-    const filteredArticles = localArticles.filter((a) =>
+    const filteredArticles = articles.filter((a) =>
         a.title.toLowerCase().includes(searchTerm.toLowerCase())
     );
 
@@ -87,10 +67,13 @@ const Articles = () => {
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-slate-100">
-                            {loading ? (
+                            {isLoading ? (
                                 <tr>
                                     <td colSpan={4} className="px-6 py-12 text-center text-slate-500">
-                                        Chargement des articles...
+                                        <div className="flex justify-center items-center">
+                                            <Loader2 className="animate-spin text-primary-500" size={24} />
+                                            <span className="ml-2">Chargement des articles...</span>
+                                        </div>
                                     </td>
                                 </tr>
                             ) : filteredArticles.length === 0 ? (

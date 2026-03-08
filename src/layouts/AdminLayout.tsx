@@ -2,7 +2,7 @@ import { Outlet, Navigate, Link, useLocation, useNavigate } from 'react-router-d
 import { LayoutDashboard, FolderKanban, Settings, LogOut, Globe, FileText } from 'lucide-react';
 import { useSite } from '../contexts/SiteContext';
 import { useEffect, useMemo } from 'react';
-import api from '../lib/axios';
+import { useSites } from '../hooks/queries/useSites';
 
 const AdminLayout = () => {
     const token = localStorage.getItem('token');
@@ -10,13 +10,13 @@ const AdminLayout = () => {
     const navigate = useNavigate();
     const { activeSite, setActiveSite, sites, setSites } = useSite();
 
+    const { data: fetchedSites = [] } = useSites();
+
     useEffect(() => {
-        if (token) {
-            api.get('/sites').then(res => {
-                setSites(res.data);
-            }).catch(console.error);
+        if (token && fetchedSites.length > 0) {
+            setSites(fetchedSites);
         }
-    }, [token, setSites]);
+    }, [token, setSites, fetchedSites]);
 
     // Basic Auth Guard
     if (!token) {

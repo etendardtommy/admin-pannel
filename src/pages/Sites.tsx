@@ -1,45 +1,41 @@
 import { useState } from 'react';
 import { Plus, Trash2, Globe } from 'lucide-react';
-import api from '../lib/axios';
 import { useSite } from '../contexts/SiteContext';
+import { useSiteMutations } from '../hooks/queries/useSites';
 
 const Sites = () => {
-    const { sites, setSites, activeSite, setActiveSite } = useSite();
-    const [loading, setLoading] = useState(false);
+    const { sites, activeSite, setActiveSite } = useSite();
     const [isAdding, setIsAdding] = useState(false);
+
+    const { createSite, deleteSite, isCreating } = useSiteMutations();
 
     const [formData, setFormData] = useState({
         name: '',
         url: '',
-        description: ''
+        domain: ''
     });
 
     const handleAdd = async (e: React.FormEvent) => {
         e.preventDefault();
-        setLoading(true);
         try {
-            const response = await api.post('/sites', formData);
-            const newSites = [...sites, response.data];
-            setSites(newSites);
-            if (!activeSite) {
-                setActiveSite(response.data);
-            }
-            setFormData({ name: '', url: '', description: '' });
+            await createSite({ name: formData.name, domain: formData.url });
+            // Le form submit reset et ferme quand c'est reussi
+            setFormData({ name: '', url: '', domain: '' });
             setIsAdding(false);
+
+            // Si c'est le 1er site, AdminLayout ou Context le set par défaut, 
+            // mais on pourrait aussi faire un refresh via invalidateQueries
         } catch (error) {
-            console.error('Erreur lors de l\'ajout du site:', error);
-            alert('Erreur lors de l\'ajout du site');
-        } finally {
-            setLoading(false);
+            console.error("Erreur lors de l'ajout du site:", error);
+            alert("Erreur lors de l'ajout du site");
         }
     };
 
     const handleDelete = async (id: number) => {
         if (window.confirm('Êtes-vous sûr de vouloir supprimer ce site ? Tous ses projets seront supprimés.')) {
             try {
-                await api.delete(`/sites/${id}`);
+                await deleteSite(id);
                 const remainingSites = sites.filter(s => s.id !== id);
-                setSites(remainingSites);
                 if (activeSite?.id === id) {
                     setActiveSite(remainingSites.length > 0 ? remainingSites[0] : null);
                 }
@@ -95,8 +91,8 @@ const Sites = () => {
                     </div>
                     <div className="mt-6 flex justify-end gap-3">
                         <button type="button" onClick={() => setIsAdding(false)} className="px-4 py-2 text-slate-600 hover:bg-slate-100 rounded-lg">Annuler</button>
-                        <button type="submit" disabled={loading} className="px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 disabled:opacity-50">
-                            {loading ? 'Enregistrement...' : 'Enregistrer'}
+                        <button type="submit" disabled={isCreating} className="px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 disabled:opacity-50">
+                            {isCreating ? 'Enregistrement...' : 'Enregistrer'}
                         </button>
                     </div>
                 </form>

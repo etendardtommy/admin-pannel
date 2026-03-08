@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useNavigate, useParams, Link } from 'react-router-dom';
 import { ArrowLeft, Save, Loader2, Image as ImageIcon, Upload } from 'lucide-react';
-import api from '../lib/axios';
+import { useProject, useProjectMutations } from '../hooks/queries/useProjects';
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000';
 
@@ -10,8 +10,10 @@ const ProjectForm = () => {
     const navigate = useNavigate();
     const isEditing = Boolean(id);
 
-    const [loading, setLoading] = useState(isEditing);
-    const [saving, setSaving] = useState(false);
+    const { data: project, isLoading: isFetching } = useProject(id);
+    const { createProject, updateProject, isCreating, isUpdating } = useProjectMutations();
+    const saving = isCreating || isUpdating;
+
     const [error, setError] = useState('');
 
     const [coverImage, setCoverImage] = useState<File | null>(null);
@@ -33,32 +35,20 @@ const ProjectForm = () => {
     };
 
     useEffect(() => {
-        if (isEditing) {
-            const fetchProject = async () => {
-                try {
-                    const response = await api.get(`/portfolio/projects/${id}`);
-                    const project = response.data;
-                    setFormData({
-                        title: project.title || '',
-                        description: project.description || '',
-                        liveUrl: project.liveUrl || '',
-                        githubUrl: project.githubUrl || '',
-                        technologies: project.technologies ? project.technologies.join(', ') : '',
-                        published: project.published || false,
-                    });
-                    if (project.imageUrl) {
-                        setPreviewUrl(getFullImageUrl(project.imageUrl));
-                    }
-                } catch (err) {
-                    console.error(err);
-                    setError('Erreur lors du chargement du projet.');
-                } finally {
-                    setLoading(false);
-                }
-            };
-            fetchProject();
+        if (isEditing && project) {
+            setFormData({
+                title: project.title || '',
+                description: project.description || '',
+                liveUrl: project.url || '', // Fix: API returns url, not liveUrl for the public link
+                githubUrl: project.githubUrl || '',
+                technologies: project.tags ? project.tags.join(', ') : '',
+                published: project.published || false,
+            });
+            if (project.imageUrl) {
+                setPreviewUrl(getFullImageUrl(project.imageUrl));
+            }
         }
-    }, [id, isEditing]);
+    }, [isEditing, project]);
 
     const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
         const { name, value, type } = e.target;
@@ -80,7 +70,6 @@ const ProjectForm = () => {
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
-        setSaving(true);
         setError('');
 
         const payload = new FormData();
@@ -98,21 +87,19 @@ const ProjectForm = () => {
         }
 
         try {
-            if (isEditing) {
-                await api.patch(`/portfolio/projects/${id}`, payload);
+            if (isEditing && id) {
+                await updateProject({ id, payload });
             } else {
-                await api.post('/portfolio/projects', payload);
+                await createProject(payload);
             }
             navigate('/projects');
         } catch (err: any) {
             console.error(err);
             setError(err.response?.data?.message || 'Une erreur est survenue lors de l\'enregistrement.');
-        } finally {
-            setSaving(false);
         }
     };
 
-    if (loading) {
+    if (isFetching) {
         return (
             <div className="flex justify-center items-center h-64">
                 <Loader2 className="animate-spin text-primary-500" size={32} />

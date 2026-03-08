@@ -1,8 +1,8 @@
 import { useState, useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { Save, ArrowLeft, Image as ImageIcon } from 'lucide-react';
-import api from '../lib/axios';
 import { useSite } from '../contexts/SiteContext';
+import { useArticle, useArticleMutations } from '../hooks/queries/useArticles';
 import { RichTextEditor } from '../components/RichTextEditor';
 
 const SERVER_URL = import.meta.env.VITE_SERVER_URL || 'http://localhost:3000';
@@ -13,8 +13,10 @@ const ArticleForm = () => {
     const { activeSite } = useSite();
     const isEditing = Boolean(id);
 
-    const [loading, setLoading] = useState(isEditing);
-    const [saving, setSaving] = useState(false);
+    const { data: article, isLoading: isFetching } = useArticle(id);
+    const { createArticle, updateArticle, isCreating, isUpdating } = useArticleMutations();
+    const saving = isCreating || isUpdating;
+
     const [error, setError] = useState<string | null>(null);
 
     const [coverImageFile, setCoverImageFile] = useState<File | null>(null);
@@ -33,23 +35,7 @@ const ArticleForm = () => {
             navigate('/');
             return;
         }
-        if (isEditing) {
-            fetchArticle();
-        }
-    }, [id, activeSite, navigate]);
-
-    useEffect(() => {
-        return () => {
-            if (imagePreview && imagePreview.startsWith('blob:')) {
-                URL.revokeObjectURL(imagePreview);
-            }
-        };
-    }, [imagePreview]);
-
-    const fetchArticle = async () => {
-        try {
-            const response = await api.get(`/articles/${id}`);
-            const article = response.data;
+        if (isEditing && article) {
             setFormData({
                 title: article.title || '',
                 excerpt: article.excerpt || '',
@@ -63,13 +49,16 @@ const ArticleForm = () => {
                     : article.imageUrl;
                 setImagePreview(fullUrl);
             }
-        } catch (err) {
-            console.error('Erreur lors du chargement de l\'article:', err);
-            setError('Impossible de charger l\'article');
-        } finally {
-            setLoading(false);
         }
-    };
+    }, [id, activeSite, navigate, isEditing, article]);
+
+    useEffect(() => {
+        return () => {
+            if (imagePreview && imagePreview.startsWith('blob:')) {
+                URL.revokeObjectURL(imagePreview);
+            }
+        };
+    }, [imagePreview]);
 
     const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
         const { name, value, type } = e.target;
@@ -94,7 +83,6 @@ const ArticleForm = () => {
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
-        setSaving(true);
         setError(null);
 
         const tagsArray = formData.tags
@@ -119,21 +107,19 @@ const ArticleForm = () => {
         }
 
         try {
-            if (isEditing) {
-                await api.patch(`/articles/${id}`, payload);
+            if (isEditing && id) {
+                await updateArticle({ id, payload });
             } else {
-                await api.post('/articles', payload);
+                await createArticle(payload);
             }
             navigate('/articles');
         } catch (err: any) {
             console.error('Erreur lors de la sauvegarde:', err);
             setError(err.response?.data?.message || 'Une erreur est survenue lors de la sauvegarde');
-        } finally {
-            setSaving(false);
         }
     };
 
-    if (loading) {
+    if (isFetching) {
         return (
             <div className="flex items-center justify-center h-64">
                 <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary-600"></div>

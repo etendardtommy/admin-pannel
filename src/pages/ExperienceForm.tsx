@@ -1,15 +1,17 @@
 import { useState, useEffect } from 'react';
 import { useNavigate, useParams, Link } from 'react-router-dom';
 import { ArrowLeft, Save, Loader2, Briefcase, GraduationCap } from 'lucide-react';
-import api from '../lib/axios';
+import { useExperience, useExperienceMutations } from '../hooks/queries/useExperiences';
 
 const ExperienceForm = () => {
     const { id } = useParams();
     const navigate = useNavigate();
     const isEditing = Boolean(id);
 
-    const [loading, setLoading] = useState(isEditing);
-    const [saving, setSaving] = useState(false);
+    const { data: exp, isLoading: isFetching } = useExperience(id);
+    const { createExperience, updateExperience, isCreating, isUpdating } = useExperienceMutations();
+    const saving = isCreating || isUpdating;
+
     const [error, setError] = useState('');
 
     const [formData, setFormData] = useState({
@@ -23,30 +25,18 @@ const ExperienceForm = () => {
     });
 
     useEffect(() => {
-        if (isEditing) {
-            const fetchExperience = async () => {
-                try {
-                    const response = await api.get(`/experience/${id}`);
-                    const exp = response.data;
-                    setFormData({
-                        type: exp.type || 'work',
-                        date: exp.date || '',
-                        title: exp.title || '',
-                        subtitle: exp.subtitle || '',
-                        description: exp.description || '',
-                        skills: exp.skills || '',
-                        published: exp.published || false,
-                    });
-                } catch (err) {
-                    console.error(err);
-                    setError("Erreur lors du chargement de l'expérience.");
-                } finally {
-                    setLoading(false);
-                }
-            };
-            fetchExperience();
+        if (isEditing && exp) {
+            setFormData({
+                type: exp.type || 'work',
+                date: exp.date || '',
+                title: exp.title || '',
+                subtitle: exp.subtitle || '',
+                description: exp.description || '',
+                skills: exp.skills || '',
+                published: exp.published || false,
+            });
         }
-    }, [id, isEditing]);
+    }, [id, isEditing, exp]);
 
     const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
         const { name, value, type } = e.target;
@@ -60,25 +50,22 @@ const ExperienceForm = () => {
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
-        setSaving(true);
         setError('');
 
         try {
-            if (isEditing) {
-                await api.patch(`/experience/${id}`, formData);
+            if (isEditing && id) {
+                await updateExperience({ id, payload: formData });
             } else {
-                await api.post('/experience', formData);
+                await createExperience(formData);
             }
             navigate('/experiences');
         } catch (err: any) {
             console.error(err);
             setError(err.response?.data?.message || err.response?.data?.error || "Une erreur est survenue lors de l'enregistrement.");
-        } finally {
-            setSaving(false);
         }
     };
 
-    if (loading) {
+    if (isFetching) {
         return (
             <div className="flex justify-center items-center h-64">
                 <Loader2 className="animate-spin text-primary-500" size={32} />
