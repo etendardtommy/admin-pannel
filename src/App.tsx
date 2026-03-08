@@ -9,6 +9,7 @@ import ArticleForm from './pages/ArticleForm';
 import Experiences from './pages/Experiences';
 import ExperienceForm from './pages/ExperienceForm';
 import Sites from './pages/Sites';
+import Messages from './pages/Messages';
 import { SiteProvider } from './contexts/SiteContext';
 
 function App() {
@@ -30,6 +31,7 @@ function App() {
             <Route path="/experiences/new" element={<ExperienceForm />} />
             <Route path="/experiences/:id" element={<ExperienceForm />} />
             <Route path="/sites" element={<Sites />} />
+            <Route path="/messages" element={<Messages />} />
             <Route path="/settings" element={<div className="p-4"><h1 className="text-2xl font-bold text-slate-900">Paramètres</h1><p className="mt-4 text-slate-500">Paramètres en cours de construction...</p></div>} />
           </Route>
 

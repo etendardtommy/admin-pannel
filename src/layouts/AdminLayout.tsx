@@ -1,5 +1,5 @@
 import { Outlet, Navigate, Link, useLocation, useNavigate } from 'react-router-dom';
-import { LayoutDashboard, FolderKanban, Settings, LogOut, Globe, FileText } from 'lucide-react';
+import { LayoutDashboard, FolderKanban, Settings, LogOut, Globe, FileText, Mail } from 'lucide-react';
 import { useSite } from '../contexts/SiteContext';
 import { useEffect, useMemo } from 'react';
 import { useSites } from '../hooks/queries/useSites';
@@ -31,12 +31,13 @@ const AdminLayout = () => {
     const navItems = useMemo(() => {
         const items = [
             { label: 'Dashboard', path: '/', icon: LayoutDashboard },
+            { label: 'Messages', path: '/messages', icon: Mail },
             { label: 'Paramètres', path: '/settings', icon: Settings },
         ];
 
         // On affiche 'Projets', 'Articles' et 'Parcours' uniquement si le site selectionné s'appelle 'portfolio' ou 'Portfolio'
         if (activeSite && activeSite.name.toLowerCase() === 'portfolio') {
-            items.splice(1, 0,
+            items.splice(2, 0,
                 { label: 'Projets', path: '/projects', icon: FolderKanban },
                 { label: 'Articles', path: '/articles', icon: FileText },
                 { label: 'Parcours', path: '/experiences', icon: FileText }

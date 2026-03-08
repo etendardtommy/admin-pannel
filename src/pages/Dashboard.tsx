@@ -1,11 +1,31 @@
-import { Users, FolderKanban, Activity, TrendingUp } from 'lucide-react';
+import { Users, FolderKanban, Activity, FileText } from 'lucide-react';
+import { useSite } from '../contexts/SiteContext';
+import { useProjects } from '../hooks/queries/useProjects';
+import { useArticles } from '../hooks/queries/useArticles';
+import { useExperiences } from '../hooks/queries/useExperiences';
+import { useMessages } from '../hooks/queries/useMessages';
+import { useAnalytics } from '../hooks/queries/useAnalytics';
 
 const Dashboard = () => {
+    const { activeSite } = useSite();
+    const siteId = activeSite?.id?.toString();
+
+    const { data: projects = [] } = useProjects(siteId);
+    const { data: articles = [] } = useArticles(siteId);
+    const { data: experiences = [] } = useExperiences(siteId);
+    const { messages = [] } = useMessages();
+    const { data: analytics } = useAnalytics(siteId);
+
+    // Filtrer les messages pour compter seulement les non lus du site (ou globaux si pas de site)
+    const unreadMessagesCount = messages.filter(m =>
+        m.status === 'UNREAD' && (!activeSite || m.siteId === activeSite.id)
+    ).length;
+
     const stats = [
-        { label: 'Projets Actifs', value: '12', icon: FolderKanban, trend: '+20%', color: 'from-blue-500 to-primary-600' },
-        { label: 'Visites ce mois', value: '3,245', icon: Activity, trend: '+12%', color: 'from-emerald-400 to-emerald-600' },
-        { label: 'Nouveaux Messages', value: '8', icon: Users, trend: '+4%', color: 'from-amber-400 to-orange-500' },
-        { label: 'Taux de conversion', value: '2.4%', icon: TrendingUp, trend: '+1.1%', color: 'from-purple-500 to-fuchsia-600' },
+        { label: 'Projets', value: projects.length.toString(), icon: FolderKanban, color: 'from-blue-500 to-primary-600' },
+        { label: 'Articles & Parcours', value: (articles.length + experiences.length).toString(), icon: FileText, color: 'from-emerald-400 to-emerald-600' },
+        { label: 'Messages Non Lus', value: unreadMessagesCount.toString(), icon: Users, color: 'from-amber-400 to-orange-500' },
+        { label: 'Visites Totales', value: (analytics?.visits || 0).toString(), icon: Activity, color: 'from-purple-500 to-fuchsia-600' },
     ];
 
     return (
@@ -22,20 +42,14 @@ const Dashboard = () => {
                     const Icon = stat.icon;
                     return (
                         <div key={index} className="bg-white rounded-2xl p-6 shadow-sm border border-slate-100 hover:shadow-md transition-shadow">
-                            <div className="flex items-start justify-between">
-                                <div>
-                                    <p className="text-sm font-medium text-slate-500 mb-1">{stat.label}</p>
-                                    <h3 className="text-3xl font-bold text-slate-900">{stat.value}</h3>
-                                </div>
-                                <div className={`w-12 h-12 rounded-xl bg-gradient-to-br ${stat.color} flex items-center justify-center text-white shadow-inner`}>
-                                    <Icon size={24} />
+                            <div className="flex justify-between items-center mb-4">
+                                <h3 className="text-sm font-medium text-slate-500">{stat.label}</h3>
+                                <div className={`p-2 bg-gradient-to-br ${stat.color} rounded-lg text-white shadow-sm`}>
+                                    <Icon className="w-5 h-5" />
                                 </div>
                             </div>
-                            <div className="mt-4 flex items-center text-sm">
-                                <span className="text-emerald-500 font-medium bg-emerald-50 px-2 py-0.5 rounded-full">
-                                    {stat.trend}
-                                </span>
-                                <span className="text-slate-400 ml-2">vs mois précédent</span>
+                            <div className="flex items-baseline gap-2">
+                                <h2 className="text-3xl font-bold tracking-tight text-slate-900">{stat.value}</h2>
                             </div>
                         </div>
                     );
@@ -48,7 +62,7 @@ const Dashboard = () => {
                     <p className="text-slate-500 text-sm">Aucune activité récente à afficher pour le moment.</p>
                 </div>
             </div>
-        </div>
+        </div >
     );
 };
 
