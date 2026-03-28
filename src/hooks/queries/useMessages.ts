@@ -38,6 +38,13 @@ export function useMessages() {
         },
     });
 
+    const deleteBulkMutation = useMutation({
+        mutationFn: (ids: number[]) => api.post('/messages/bulk-delete', { ids }),
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: ['messages'] });
+        },
+    });
+
     return {
         messages,
         isLoading,
@@ -46,5 +53,7 @@ export function useMessages() {
         isUpdating: updateStatusMutation.isPending,
         deleteMessage: deleteMutation.mutate,
         isDeleting: deleteMutation.isPending,
+        deleteMessages: deleteBulkMutation.mutate,
+        isDeletingBulk: deleteBulkMutation.isPending,
     };
 }

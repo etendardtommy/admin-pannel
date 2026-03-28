@@ -3,8 +3,38 @@ import { Mail, CheckCircle, Trash2, Archive, Loader2 } from 'lucide-react';
 import { useMessages, type Message } from '../hooks/queries/useMessages';
 
 export default function Messages() {
-    const { messages, isLoading, updateStatus, isUpdating, deleteMessage, isDeleting } = useMessages();
+    const { messages, isLoading, updateStatus, isUpdating, deleteMessage, isDeleting, deleteMessages, isDeletingBulk } = useMessages();
     const [selectedMessage, setSelectedMessage] = useState<Message | null>(null);
+    const [selectedIds, setSelectedIds] = useState<number[]>([]);
+
+    const handleSelectAll = (e: React.ChangeEvent<HTMLInputElement>) => {
+        if (e.target.checked && messages) {
+            setSelectedIds(messages.map(m => m.id));
+        } else {
+            setSelectedIds([]);
+        }
+    };
+
+    const handleSelectOne = (e: React.ChangeEvent<HTMLInputElement>, id: number) => {
+        if (e.target.checked) {
+            setSelectedIds(prev => [...prev, id]);
+        } else {
+            setSelectedIds(prev => prev.filter(i => i !== id));
+        }
+    };
+
+    const handleBulkDelete = () => {
+        if (window.confirm(`Voulez-vous vraiment supprimer ces ${selectedIds.length} message(s) ?`)) {
+            deleteMessages(selectedIds, {
+                onSuccess: () => {
+                    setSelectedIds([]);
+                    if (selectedMessage && selectedIds.includes(selectedMessage.id)) {
+                        setSelectedMessage(null);
+                    }
+                }
+            });
+        }
+    };
 
     if (isLoading) {
         return (
@@ -38,8 +68,27 @@ export default function Messages() {
             <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden flex flex-col md:flex-row min-h-[600px]">
                 {/* Messages List */}
                 <div className="w-full md:w-1/3 border-r border-slate-200 flex flex-col">
-                    <div className="p-4 border-b border-slate-200 bg-slate-50">
-                        <h2 className="text-sm font-semibold text-slate-700">Boîte de réception</h2>
+                    <div className="p-4 border-b border-slate-200 bg-slate-50 flex items-center justify-between">
+                        <div className="flex items-center gap-3">
+                            <input 
+                                type="checkbox" 
+                                className="rounded border-slate-300 text-indigo-600 focus:ring-indigo-500 w-4 h-4 cursor-pointer"
+                                checked={messages && messages.length > 0 && selectedIds.length === messages.length}
+                                onChange={handleSelectAll}
+                                title="Tout cocher"
+                            />
+                            <h2 className="text-sm font-semibold text-slate-700">Boîte de réception</h2>
+                        </div>
+                        {selectedIds.length > 0 && (
+                            <button
+                                onClick={handleBulkDelete}
+                                disabled={isDeletingBulk}
+                                className="flex items-center gap-1 text-xs font-medium text-red-600 hover:text-red-700 bg-red-50 hover:bg-red-100 px-2 py-1 rounded transition-colors"
+                            >
+                                {isDeletingBulk ? <Loader2 className="w-3 h-3 animate-spin" /> : <Trash2 className="w-3 h-3" />}
+                                Supprimer ({selectedIds.length})
+                            </button>
+                        )}
                     </div>
                     <div className="flex-1 overflow-y-auto">
                         {messages?.length === 0 ? (
@@ -61,22 +110,34 @@ export default function Messages() {
                                             }
                                         }}
                                     >
-                                        <div className="flex justify-between items-start mb-1">
-                                            <span className={`font-medium ${msg.status === 'UNREAD' ? 'text-slate-900' : 'text-slate-600'}`}>
-                                                {msg.name}
-                                            </span>
-                                            <span className="text-xs text-slate-500">
-                                                {new Date(msg.createdAt).toLocaleDateString()}
-                                            </span>
+                                        <div className="flex items-start gap-3">
+                                            <div className="pt-0.5" onClick={(e) => e.stopPropagation()}>
+                                                <input 
+                                                    type="checkbox"
+                                                    className="rounded border-slate-300 text-indigo-600 focus:ring-indigo-500 w-4 h-4 cursor-pointer"
+                                                    checked={selectedIds.includes(msg.id)}
+                                                    onChange={(e) => handleSelectOne(e, msg.id)}
+                                                />
+                                            </div>
+                                            <div className="flex-1 min-w-0">
+                                                <div className="flex justify-between items-start mb-1">
+                                                    <span className={`font-medium ${msg.status === 'UNREAD' ? 'text-slate-900' : 'text-slate-600'}`}>
+                                                        {msg.name}
+                                                    </span>
+                                                    <span className="text-xs text-slate-500 whitespace-nowrap ml-2">
+                                                        {new Date(msg.createdAt).toLocaleDateString()}
+                                                    </span>
+                                                </div>
+                                                <div className="text-sm text-slate-500 truncate mb-2 flex-1">
+                                                    {msg.email}
+                                                </div>
+                                                {msg.site && (
+                                                    <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-slate-100 text-slate-800">
+                                                        {msg.site.name}
+                                                    </span>
+                                                )}
+                                            </div>
                                         </div>
-                                        <div className="text-sm text-slate-500 truncate mb-2">
-                                            {msg.email}
-                                        </div>
-                                        {msg.site && (
-                                            <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-slate-100 text-slate-800">
-                                                {msg.site.name}
-                                            </span>
-                                        )}
                                     </li>
                                 ))}
                             </ul>
